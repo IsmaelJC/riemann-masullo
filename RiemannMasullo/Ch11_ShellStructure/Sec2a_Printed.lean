@@ -150,12 +150,130 @@ def Printed.orbitalQuotientDual_missingPV : Prop :=
         ∀ (Λ : StrongDual ℂ Q) (f : Wω(F, hs, ω)), spectralSobolevPairing f.val (D Λ) =
           Λ (N.mkQ f)
 
+/-- The trivial unitary character of the idele class group of ℚ, untwisted, is the
+trivial quasi-character. -/
+private theorem trivialTwist_eq_one :
+    ideleClassNormTwist (1 : PontryaginDual C𝔽(ℚ)) 0 = 1 := by
+  ext g
+  change (1 : ℂ) * _ ^ (0 : ℂ) = 1
+  simp
+
+/-- The trivial character is unramified at every finite place of ℚ. -/
+private theorem trivialTwist_isUnramifiedAt (v : V(ℚ)) :
+    (ideleClassNormTwist (1 : PontryaginDual C𝔽(ℚ)) 0).IsUnramifiedAt v := by
+  rw [trivialTwist_eq_one, HeckeCharacter.isUnramifiedAt_iff]
+  intro x
+  simp
+
+/-- The reciprocal Euler factor of the trivial character vanishes at zero at every
+finite place of ℚ. -/
+private theorem trivialTwist_factor (v : V(ℚ)) :
+    (finiteHeckeEulerFactor (1 : PontryaginDual C𝔽(ℚ)) v 0)⁻¹ = 0 := by
+  rw [finiteHeckeEulerFactor, ite_eq_left (trivialTwist_isUnramifiedAt v), inv_inv,
+    trivialTwist_eq_one]
+  have hπ := (Valued.v : Valuation (v.adicCompletion ℚ)
+    (WithZero (Multiplicative ℤ))).exists_isUniformizer_of_isCyclic_of_nontrivial.choose_spec
+  simp [HeckeCharacter.localValue, hπ.ne_zero]
+
+/-- A functional on a quotient that takes the value one somewhere cannot vanish on
+every class. -/
+private theorem functional_ne_of_pairing_zero {E : Type*} [AddCommGroup E] [Module ℂ E]
+    (N : Submodule ℂ E) [TopologicalSpace (E ⧸ N)] (Λ : (E ⧸ N) →L[ℂ] ℂ) (q : E ⧸ N)
+    (hq : Λ q = 1) (p : E → ℂ) (hp : ∀ f, Λ (N.mkQ f) = p f) (h0 : ∀ f, p f = 0) : False := by
+  obtain ⟨f, rfl⟩ := N.mkQ_surjective q
+  rw [hp, h0] at hq
+  exact zero_ne_one hq
+
+/-- A continuous linear map commuting with a group action that restricts an ambient
+action preserves every ambient isotype. -/
+private theorem mem_actionIsotype_of_commute {K E : Type*} [Monoid K] [TopologicalSpace K]
+    [AddCommGroup E] [Module ℂ E] [TopologicalSpace E] (ρ : K →* (E →L[ℂ] E))
+    (ω : PontryaginDual K) (H : Submodule ℂ E) (R : K → H →L[ℂ] H)
+    (hR : ∀ k u, (R k u : E) = ρ k u) (P : H →L[ℂ] H) (hP : ∀ k u, P (R k u) = R k (P u))
+    (u : H) (hu : (u : E) ∈ actionIsotype ρ ω) : (P u : E) ∈ actionIsotype ρ ω := by
+  rw [mem_actionIsotype] at hu ⊢
+  intro k
+  have hRk : R k u = (ω k : ℂ) • u := Subtype.ext ((hR k u).trans (hu k))
+  rw [← hR, ← hP, hRk, map_smul]
+  rfl
+
+/-- The image of a vector under a map of a submodule lies in the closure of the range. -/
+private theorem mem_comap_closure_range {E : Type*} [AddCommGroup E] [Module ℂ E]
+    [TopologicalSpace E] [ContinuousAdd E] [ContinuousConstSMul ℂ E] (H K : Submodule ℂ E)
+    (P : H →L[ℂ] H) (f : H) (hf : (P f : E) ∈ K) :
+    (⟨_, hf⟩ : K) ∈ ((H.subtype.comp P.toLinearMap).range.topologicalClosure).comap
+      K.subtype :=
+  Submodule.le_topologicalClosure _ ⟨f, rfl⟩
+
+/-- A functional on a quotient vanishes on the class of a vector of the submodule. -/
+private theorem functional_mkQ_eq_zero {E : Type*} [AddCommGroup E] [Module ℂ E]
+    (N : Submodule ℂ E) [TopologicalSpace (E ⧸ N)] (Λ : (E ⧸ N) →L[ℂ] ℂ) {x : E}
+    (hx : x ∈ N) : Λ (N.mkQ x) = 0 := by
+  rw [Submodule.mkQ_apply, (Submodule.Quotient.mk_eq_zero N).2 hx, map_zero]
+
+/-- The pullback of the whole space to a submodule is the whole submodule. -/
+private theorem comap_subtype_eq_top_of_eq_top {E : Type*} [AddCommGroup E] [Module ℂ E]
+    (H K : Submodule ℂ E) (hH : H = ⊤) : H.comap K.subtype = ⊤ := by
+  rw [hH, Submodule.comap_top]
+
+/-- A continuous linear functional on the quotient by the whole space is zero. -/
+private theorem strongDual_quotient_top_eq_zero {E : Type*} [AddCommGroup E] [Module ℂ E]
+    (N : Submodule ℂ E) (hN : N = ⊤) [TopologicalSpace (E ⧸ N)] (Λ : (E ⧸ N) →L[ℂ] ℂ) :
+    Λ = 0 := by
+  have : Subsingleton (E ⧸ N) := Submodule.Quotient.subsingleton_iff.2 hN
+  ext q
+  rw [Subsingleton.elim q 0, map_zero, map_zero]
+
 /-- Paper: Remark 11.2.0.3, p. 485. Take ℚ, S₀ = {2}, degree 2, and the
 trivial isotype. Integration is nonzero and continuous on that positive
 isotype and kills the prime difference. The quotient by the full theta
 completion is zero by 0-line density. -/
 theorem Printed.orbitalQuotientDual_missingPV_false :
-    ¬ Printed.orbitalQuotientDual_missingPV := by sorry
+    ¬ Printed.orbitalQuotientDual_missingPV := by
+  intro h
+  let v : V(ℚ) := Rat.HeightOneSpectrum.primesEquiv.symm ⟨2, Nat.prime_two⟩
+  have hunr : ∀ w ∈ ({v} : Finset V(ℚ)),
+      (ideleClassNormTwist (1 : PontryaginDual C𝔽(ℚ)) 0).IsUnramifiedAt w :=
+    fun w _ ↦ trivialTwist_isUnramifiedAt w
+  have hs : (0 : ℝ) ≤ 2 := by norm_num
+  obtain ⟨D, -, hrange, hcomp⟩ := h ℚ 1 {v} hunr 2 hs
+  have htop : globalThetaSobolev ℚ 0 hI hs = ⊤ := by
+    apply (Submodule.dense_iff_topologicalClosure_eq_top).1
+    refine (denseRange_globalTheta_zeroLine (F := ℚ) hs).mono ?_
+    rintro _ ⟨u, rfl⟩
+    exact ⟨u, rfl⟩
+  have hN : (globalThetaSobolev ℚ 0 hI hs).comap
+      (Wω(ℚ, hs, (1 : PontryaginDual C𝔽(ℚ)).comp (restriction(ℚ)))).subtype = ⊤ :=
+    comap_subtype_eq_top_of_eq_top _ _ htop
+  obtain ⟨-, x, Λ, hbasis, hpair⟩ :=
+    orbitalMarkushevichBasis (F := ℚ) 1 {v} hs (by norm_num) hunr
+  let j0 : OrbitalJetIndex (1 : PontryaginDual C𝔽(ℚ)) {v} 2 := ⟨((0 : ℝ), 0), by
+    rw [lt_spectralBoundaryMultiplicity, orbitalEulerMultiplicity_eq_card]
+    refine ⟨?_, by norm_num⟩
+    simp [trivialTwist_factor]⟩
+  obtain ⟨ψ, hψ⟩ : ∃ ψ, ∀ f, Λ j0 ((orbitalSobolevSubmodule ℚ {v} hs
+      ((1 : PontryaginDual C𝔽(ℚ)).comp (restriction(ℚ)))).mkQ f) =
+        spectralSobolevPairing f.val ψ := ⟨_, hpair j0⟩
+  let R := (exists_globalThetaSobolevAction (F := ℚ) 0 hI hs).choose
+  have hR := (exists_globalThetaSobolevAction (F := ℚ) 0 hI hs).choose_spec.1
+  have hann : ψ ∈ range D := by
+    rw [hrange]
+    intro f hf
+    have hPf : ((globalThetaSobolevPrincipalValue ℚ {v} 0 hs f : H(ℚ, hs)) : W(ℚ, 2)) ∈
+        Wω(ℚ, hs, (1 : PontryaginDual C𝔽(ℚ)).comp (restriction(ℚ))) := by
+      have heq := fun k : C₁(ℚ) ↦
+        globalThetaSobolevPrincipalValue_equivariant (F := ℚ) {v} 0 hs k
+      exact mem_actionIsotype_of_commute _ _ _ (fun k ↦ R k.val) (fun k ↦ hR k.val)
+        (globalThetaSobolevPrincipalValue ℚ {v} 0 hs) heq f hf
+    have hmem : (⟨_, hPf⟩ : Wω(ℚ, hs, (1 : PontryaginDual C𝔽(ℚ)).comp (restriction(ℚ)))) ∈
+        orbitalSobolevSubmodule ℚ {v} hs ((1 : PontryaginDual C𝔽(ℚ)).comp (restriction(ℚ))) := by
+      unfold orbitalSobolevSubmodule
+      exact mem_comap_closure_range _ _ _ f hPf
+    exact (hψ ⟨_, hPf⟩).symm.trans (functional_mkQ_eq_zero _ _ hmem)
+  obtain ⟨Λ', rfl⟩ := hann
+  exact functional_ne_of_pairing_zero _ (Λ j0) (x j0) (hbasis.1 j0) _ hψ
+    (fun f ↦ by rw [hcomp Λ' f, strongDual_quotient_top_eq_zero _ hN Λ']; rfl)
+
 
 /-- Paper: (11.2.0.8), p. 486. Every full-order jet must have a representative
 in the specified subset of the printed negative Sobolev isotype. -/
